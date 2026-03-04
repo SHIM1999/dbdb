@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>PostgreSQL DB 연동 매뉴얼 – ATMC.App.MultiRobotBolting</title>
+  <style>
+    body { font-family: 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; color: #222; margin: 60px auto; max-width: 800px; line-height: 1.7; }
+    h1 { font-size: 20pt; color: #1a3c6e; border-bottom: 3px solid #1a3c6e; padding-bottom: 8px; margin-top: 40px; }
+    h2 { font-size: 14pt; color: #1a3c6e; border-left: 5px solid #1a3c6e; padding-left: 10px; margin-top: 32px; }
+    h3 { font-size: 12pt; color: #333; margin-top: 20px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10.5pt; }
+    th { background: #1a3c6e; color: #fff; padding: 8px 12px; text-align: left; }
+    td { border: 1px solid #ccc; padding: 7px 12px; }
+    tr:nth-child(even) td { background: #f4f7fc; }
+    code { background: #f0f0f0; border-radius: 3px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 10pt; }
+    pre { background: #f4f7fc; border-left: 4px solid #1a3c6e; padding: 14px 16px; font-family: Consolas, monospace; font-size: 10pt; overflow-x: auto; border-radius: 4px; }
+    .note { background: #fff8dc; border-left: 4px solid #f0c040; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
+    .warn { background: #fff0f0; border-left: 4px solid #e05050; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
+    .ok   { background: #f0fff4; border-left: 4px solid #40b070; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    .cover { text-align: center; margin: 60px 0 80px; }
+    .cover h1 { border: none; font-size: 26pt; }
+    .cover p { color: #555; font-size: 11pt; }
+    .flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    .box { background: #1a3c6e; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 10pt; }
+    .arrow { font-size: 14pt; color: #888; }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════ 표지 ══════════════ -->
+<div class="cover">
+  <h1>PostgreSQL DB 연동 매뉴얼</h1>
+  <p><strong>프로젝트:</strong> ATMC.App.MultiRobotBolting</p>
+  <p><strong>작성일:</strong> 2026-03-04</p>
+  <p><strong>버전:</strong> 1.1</p>
+  <hr />
+  <p style="font-size:10pt; color:#888;">본 문서는 기존 SQLite + MySQL(MariaDB) 이중 저장 구조에<br>
+  PostgreSQL을 세 번째 저장 대상으로 추가한 작업에 대한 설명입니다.</p>
+</div>
+
+
+<!-- ══════════════ 1. 개요 ══════════════ -->
+<h1>1. 개요</h1>
+
+<p>
+  기존 시스템은 볼팅 사이클 결과를 <strong>SQLite(로컬)</strong>와 <strong>MySQL/MariaDB(서버)</strong>
+  두 곳에 저장하고 있었습니다.<br>
+  이번 작업에서는 기존 저장 로직을 <strong>변경하지 않고</strong>,
+  <strong>PostgreSQL을 세 번째 저장 대상으로 추가</strong>하였습니다.
+</p>
+
+<div class="flow">
+  <span class="box">사이클 완료</span>
+  <span class="arrow">→</span>
+  <span class="box">SaveDB()</span>
+  <span class="arrow">→</span>
+  <span class="box">① SQLite</span>
+  <span class="arrow">+</span>
+  <span class="box">② MySQL</span>
+  <span class="arrow">+</span>
+  <span class="box">③ PostgreSQL (신규)</span>
+</div>
+
+<div class="ok">
+  세 블록은 각각 독립된 try/catch로 감싸져 있으므로,
+  하나가 실패해도 나머지 저장은 정상적으로 진행됩니다.
+</div>
+
+
+<!-- ══════════════ 2. 시스템 구성 ══════════════ -->
+<h1>2. 시스템 구성</h1>
+
+<h2>2-1. DB 비교</h2>
+<table>
+  <tr><th>항목</th><th>SQLite</th><th>MySQL (MariaDB)</th><th>PostgreSQL (신규)</th></tr>
+  <tr><td>용도</td><td>앱 내부 로컬 저장</td><td>공장 서버 전송</td><td>PostgreSQL 서버 전송</td></tr>
+  <tr><td>연결 방식</td><td>파일 경로</td><td>IP + 고정 계정(atmc/atmc)</td><td>IP + 포트 + 계정 (설정 가능)</td></tr>
+  <tr><td>테이블명</td><td>RESULT</td><td>tblcycleinfo</td><td>result</td></tr>
+  <tr><td>AUTO INCREMENT</td><td>INTEGER AUTOINCREMENT</td><td>INT AUTO_INCREMENT</td><td>SERIAL</td></tr>
+  <tr><td>설정 위치</td><td>Global.DbFile</td><td>Global.Setting.DBServerAddress</td><td>Global.Setting.PgHost 외 4개</td></tr>
+</table>
+
+<h2>2-2. 추가/변경된 파일 목록</h2>
+<table>
+  <tr><th>파일</th><th>상태</th><th>내용</th></tr>
+  <tr><td>PostgresDB.cs</td><td>신규 생성</td><td>PostgreSQL 연결/DDL/DML 클래스</td></tr>
+  <tr><td>packages.config</td><td>신규 생성</td><td>Npgsql 5.0.18 NuGet 선언</td></tr>
+  <tr><td>MySetting.cs</td><td>수정</td><td>PG 접속 설정 5개 추가</td></tr>
+  <tr><td>Global.cs</td><td>수정</td><td>PgDB 전역 변수 + InitPgDB() 추가</td></tr>
+  <tr><td>Result.cs</td><td>수정</td><td>SaveDB()에 PostgreSQL 블록 추가</td></tr>
+  <tr><td>*.csproj</td><td>수정</td><td>Npgsql 어셈블리 참조 등록</td></tr>
+</table>
+
+
+<!-- ══════════════ 3. 설치 및 준비 ══════════════ -->
+<h1>3. 설치 및 준비</h1>
+
+<h2>3-1. PostgreSQL 서버 설치</h2>
+<ol>
+  <li><a href="https://www.postgresql.org/download/windows/">https://www.postgresql.org/download/windows/</a> 에서 설치 파일 다운로드</li>
+  <li>설치 시 기본 설정:
+    <ul>
+      <li>포트: <code>5432</code></li>
+      <li>기본 계정: <code>postgres</code></li>
+      <li>비밀번호: 설치 중 직접 설정 (잊지 말 것)</li>
+    </ul>
+  </li>
+  <li>설치 완료 후 pgAdmin 또는 psql로 연결 확인</li>
+</ol>
+
+<div class="note">
+  PostgreSQL은 MySQL과 달리 <strong>데이터베이스를 미리 생성해 두어야 합니다.</strong><br>
+  pgAdmin에서 원하는 DB명으로 Database를 먼저 생성하거나, 기본 <code>postgres</code> DB를 그대로 사용할 수 있습니다.<br>
+  테이블(<code>result</code>)은 앱 시작 시 자동으로 생성됩니다.
+</div>
+
+<h2>3-2. NuGet 패키지 설치 (빌드 전 필수)</h2>
+
+<p>
+  Npgsql 5.0.18은 .NET Framework 4.8 환경에서 아래 세 개의 패키지를 <strong>별도로 설치</strong>해야 합니다.<br>
+  (.NET Core / .NET 5+ 에서는 런타임에 내장되어 있어 불필요하지만, .NET Framework에서는 직접 추가해야 합니다.)
+</p>
+
+<table>
+  <tr><th>패키지</th><th>설치 버전</th><th>필요 이유</th></tr>
+  <tr><td>Npgsql</td><td>5.0.18</td><td>PostgreSQL 드라이버 본체</td></tr>
+  <tr><td>System.Threading.Channels</td><td>4.7.1</td><td>Npgsql 내부 비동기 파이프라인 의존성</td></tr>
+  <tr><td>System.Text.Json</td><td>5.0.2</td><td>Npgsql JSON 직렬화 의존성</td></tr>
+  <tr><td>System.Runtime.CompilerServices.Unsafe</td><td>5.0.0</td><td>Npgsql 저수준 메모리 접근 의존성</td></tr>
+</table>
+
+<h3>설치 방법 – Package Manager Console</h3>
+<p>Visual Studio 2022 메뉴: <strong>도구 → NuGet 패키지 관리자 → 패키지 관리자 콘솔</strong></p>
+<pre>Install-Package Npgsql -Version 5.0.18
+Install-Package System.Threading.Channels -Version 4.7.1
+Install-Package System.Text.Json -Version 5.0.2
+Install-Package System.Runtime.CompilerServices.Unsafe -Version 5.0.0</pre>
+
+<div class="note">
+  이미 Npgsql이 설치되어 있어도 <strong>나머지 3개 패키지를 추가로 설치해야 합니다.</strong><br>
+  packages.config 방식(.NET Framework 레거시)은 전이적 의존성을 자동으로 설치하지 않습니다.
+</div>
+
+<div class="warn">
+  3개 의존 패키지가 없으면 앱 시작 시 <code>System.Threading.Channels</code> 등의
+  어셈블리 로드 오류가 발생하며, PostgreSQL 연결이 실패합니다.
+  빌드는 성공하더라도 런타임에서 오류가 발생하므로 반드시 설치하세요.
+</div>
+
+
+<!-- ══════════════ 4. 설정 항목 ══════════════ -->
+<h1>4. 설정 항목 (MySetting)</h1>
+
+<p>앱 설정 화면의 <strong>DB 그룹</strong>에 다음 항목이 추가되었습니다.</p>
+
+<table>
+  <tr><th>설정 항목</th><th>기본값</th><th>설명</th></tr>
+  <tr><td>PgHost</td><td>localhost</td><td>PostgreSQL 서버 주소 (IP 또는 호스트명)</td></tr>
+  <tr><td>PgPort</td><td>5432</td><td>포트 번호 (기본 5432)</td></tr>
+  <tr><td>PgDatabase</td><td>postgres</td><td>접속할 데이터베이스 이름</td></tr>
+  <tr><td>PgUser</td><td>postgres</td><td>사용자 계정</td></tr>
+  <tr><td>PgPassword</td><td>(빈값)</td><td>비밀번호</td></tr>
+</table>
+
+<div class="note">
+  설정 변경 시 WriteProtectionType.AskForPermission 이 적용되어 권한 확인 후 저장됩니다.<br>
+  변경 후에는 <strong>앱을 재시작</strong>해야 새 설정으로 재연결됩니다.
+</div>
+
+<h3>연결 문자열 예시</h3>
+<pre>Host=192.168.1.100;Port=5432;Database=atmc_result;Username=postgres;Password=1234;Timeout=10;CommandTimeout=30</pre>
+
+
+<!-- ══════════════ 5. 파일별 상세 설명 ══════════════ -->
+<h1>5. 파일별 상세 설명</h1>
+
+<h2>5-1. PostgresDB.cs</h2>
+<p>PostgreSQL 연동의 핵심 클래스입니다. 외부 의존성은 <code>Npgsql</code>과 표준 .NET(<code>System.Data</code>)뿐입니다.</p>
+
+<table>
+  <tr><th>메서드</th><th>설명</th></tr>
+  <tr><td><code>Connect()</code></td><td>서버에 연결하고 <code>CreateTable()</code>을 자동 호출</td></tr>
+  <tr><td><code>Disconnect()</code></td><td>연결 해제 및 리소스 정리</td></tr>
+  <tr><td><code>CreateTable()</code></td><td>result 테이블이 없으면 생성 (IF NOT EXISTS)</td></tr>
+  <tr><td><code>InsertRecord(...)</code></td><td>결과 1건을 파라미터 바인딩으로 삽입 (@param 방식)</td></tr>
+</table>
+
+<h3>테이블 구조 (result)</h3>
+<pre>id         SERIAL PRIMARY KEY
+date       TIMESTAMP   -- 저장 시각
+model      TEXT        -- 모델명
+body_no    TEXT        -- 바디 번호
+seq_no     TEXT        -- 시퀀스 번호
+result     CHAR(2)     -- "OK" / "NG"
+fit        REAL        -- 피트니스
+ovl        REAL        -- 오버랩
+dx/dy/dz   REAL        -- 등록 결과 위치 (mm)
+drx/dry/drz REAL       -- 등록 결과 각도 (deg)
+ox/oy/oz   REAL        -- 오프셋 위치
+orx/ory/orz REAL       -- 오프셋 각도
+result_dir TEXT        -- 결과 파일 저장 경로</pre>
+
+<div class="note">
+  컬럼 구성은 기존 SQLite <code>DB.COL</code> 열거형과 1:1로 일치합니다.
+</div>
+
+<h2>5-2. MySetting.cs</h2>
+<p>기존 <code>DBServerAddress</code> (MySQL용) 바로 아래에 5개 항목 추가:</p>
+<pre>public Property_&lt;string&gt; PgHost     { get; } = new Property_&lt;string&gt;("localhost", "DB", WriteProtectionType.AskForPermission);
+public Property_&lt;int&gt;    PgPort     { get; } = new Property_&lt;int&gt;(5432,           "DB", WriteProtectionType.AskForPermission);
+public Property_&lt;string&gt; PgDatabase { get; } = new Property_&lt;string&gt;("postgres",  "DB", WriteProtectionType.AskForPermission);
+public Property_&lt;string&gt; PgUser     { get; } = new Property_&lt;string&gt;("postgres",  "DB", WriteProtectionType.AskForPermission);
+public Property_&lt;string&gt; PgPassword { get; } = new Property_&lt;string&gt;("",          "DB", WriteProtectionType.AskForPermission);</pre>
+
+<h2>5-3. Global.cs</h2>
+<p>DATABASE 영역에 다음이 추가되었습니다:</p>
+<pre>public static PostgresDB PgDB = null;
+
+public static void InitPgDB() {
+    try {
+        PgDB = new PostgresDB(
+            Setting.PgHost, Setting.PgPort,
+            Setting.PgDatabase, Setting.PgUser, Setting.PgPassword);
+        PgDB.Connect();   // Connect() 내부에서 CreateTable() 자동 호출
+    } catch(Exception ex) { LotusAPI.Logger.Error(ex.Message); }
+}</pre>
+
+<p><code>Init()</code> 호출 순서:</p>
+<pre>InitPlc() → InitDB() → <strong>InitPgDB()</strong> → InitRobots() → InitScanners() → ...</pre>
+
+<h2>5-4. Result.cs – SaveDB()</h2>
+<p>기존 두 블록 뒤에 세 번째 블록이 추가되었습니다. (<strong>line 132 ~ 162</strong>)</p>
+
+<table>
+  <tr><th>블록</th><th>라인</th><th>대상</th></tr>
+  <tr><td>try/catch #1</td><td>17 ~ 52</td><td>SQLite (기존, 변경 없음)</td></tr>
+  <tr><td>try/catch #2</td><td>53 ~ 130</td><td>MySQL/MariaDB (기존, 변경 없음)</td></tr>
+  <tr><td>try/catch #3</td><td>132 ~ 162</td><td>PostgreSQL (신규 추가 + 오류 진단 강화)</td></tr>
+</table>
+
+<pre>try {
+    if(Global.PgDB == null) {
+        Logger.Warn("PostgreSQL: PgDB is not initialized, skipping.");
+    } else if(!Global.PgDB.IsConnected) {
+        Logger.Error($"PostgreSQL: not connected, skipping insert. LastError={Global.PgDB.LastError}");
+    } else {
+        float fit = 0, ovl = 0, dx = 0, dy = 0, dz = 0, drx = 0, dry = 0, drz = 0;
+        if(RegistationResult != null) {
+            fit = (float)RegistationResult.Fitness;
+            ovl = (float)RegistationResult.Overlap;
+            var pose = new RobotPose(RegistationResult.Matrix);
+            dx  = (float)pose.X;  dy  = (float)pose.Y;  dz  = (float)pose.Z;
+            drx = (float)pose.Rx; dry = (float)pose.Ry; drz = (float)pose.Rz;
+        }
+        var pgOffset = (Model as ModelConfig).Registration.ShiftOffset;
+        bool pgOk = Global.PgDB.InsertRecord(
+            Model.Name, BodyNo, SeqNo, OK ? "OK" : "NG",
+            fit, ovl,
+            dx, dy, dz, drx, dry, drz,
+            (float)pgOffset.DX,  (float)pgOffset.DY,  (float)pgOffset.DZ,
+            (float)pgOffset.DRx, (float)pgOffset.DRy, (float)pgOffset.DRz,
+            GetResultDir());
+        if(pgOk) Logger.Log($"OK (PostgreSQL)");
+        else     Logger.Error($"PostgreSQL insert failed: {Global.PgDB.LastError}");
+    }
+} catch(Exception ex) {
+    Logger.Error(ex.Message);
+    Logger.Trace(ex.StackTrace);
+}</pre>
+
+<div class="warn">
+  <strong>v1.0 → v1.1 변경점:</strong> 기존 코드는 <code>InsertRecord()</code>의 반환값(bool)을 확인하지 않아,
+  연결 실패 시에도 로그에 <em>"OK (PostgreSQL)"</em>이 표시되는 문제가 있었습니다.<br>
+  변경 후에는 3단계로 상태를 분리하여 정확한 오류 원인을 로그에 기록합니다.
+</div>
+
+<table>
+  <tr><th>로그 메시지</th><th>의미</th></tr>
+  <tr><td><code>OK (PostgreSQL)</code></td><td>정상 저장 완료</td></tr>
+  <tr><td><code>PostgreSQL: PgDB is not initialized, skipping.</code></td><td>InitPgDB() 자체가 실패 (예외 또는 설정 누락)</td></tr>
+  <tr><td><code>PostgreSQL: not connected, skipping insert. LastError=...</code></td><td>Connect() 실패 — LastError에 원인 표시</td></tr>
+  <tr><td><code>PostgreSQL insert failed: ...</code></td><td>연결은 됐으나 INSERT 실패</td></tr>
+</table>
+
+
+<!-- ══════════════ 6. 동작 흐름 ══════════════ -->
+<h1>6. 런타임 동작 흐름</h1>
+
+<h2>6-1. 앱 시작 시</h2>
+<pre>Program.Main()
+  └─ Global.InitGlobalSetting()   -- setting.json 로드
+  └─ Global.Init()
+       └─ InitDB()                -- SQLite 연결
+       └─ InitPgDB()              -- PostgreSQL 연결 + 테이블 자동 생성
+       └─ InitRobots() ...        -- 하드웨어 초기화</pre>
+
+<h2>6-2. 볼팅 사이클 완료 시</h2>
+<pre>Result.SaveDB()
+  ├─ [try #1] DB.MyTable.InsertRow(row)          → SQLite 저장
+  ├─ [try #2] MySqlConnection → INSERT             → MySQL 저장
+  └─ [try #3] Global.PgDB?.InsertRecord(...)      → PostgreSQL 저장</pre>
+
+
+<!-- ══════════════ 7. 문제 해결 ══════════════ -->
+<h1>7. 문제 해결</h1>
+
+<table>
+  <tr><th>증상</th><th>원인</th><th>해결 방법</th></tr>
+  <tr>
+    <td>빌드 오류: Npgsql 참조 없음</td>
+    <td>NuGet 패키지 미설치</td>
+    <td>패키지 관리자 콘솔에서 4개 패키지 설치 (3-2 참조)</td>
+  </tr>
+  <tr>
+    <td>런타임 오류: <code>System.Threading.Channels</code> 어셈블리 로드 실패</td>
+    <td>Npgsql 의존 패키지 3개 미설치<br>(빌드는 성공해도 런타임 실패)</td>
+    <td>패키지 관리자 콘솔에서 아래 3개 설치:<br>
+      <code>System.Threading.Channels 4.7.1</code><br>
+      <code>System.Text.Json 5.0.2</code><br>
+      <code>System.Runtime.CompilerServices.Unsafe 5.0.0</code>
+    </td>
+  </tr>
+  <tr>
+    <td>로그에 <code>PostgreSQL: not connected</code><br>+ <code>LastError=파일이나 어셈블리... 로드할 수 없습니다</code></td>
+    <td>위와 동일 — 의존 패키지 누락으로 Connect() 내부에서 예외 발생</td>
+    <td>위와 동일</td>
+  </tr>
+  <tr>
+    <td>로그에 "connection refused"</td>
+    <td>PostgreSQL 서버 미실행 또는 IP/포트 오류</td>
+    <td>서버 상태 확인, MySetting에서 PgHost/PgPort 재설정</td>
+  </tr>
+  <tr>
+    <td>로그에 "password authentication failed"</td>
+    <td>PgUser/PgPassword 불일치</td>
+    <td>MySetting에서 계정 정보 수정 후 재시작</td>
+  </tr>
+  <tr>
+    <td>로그에 "database does not exist"</td>
+    <td>PgDatabase에 지정한 DB가 없음</td>
+    <td>pgAdmin에서 해당 DB 생성 (테이블은 자동 생성됨)</td>
+  </tr>
+  <tr>
+    <td>로그에 <code>PostgreSQL: PgDB is not initialized</code></td>
+    <td>InitPgDB() 자체가 예외로 실패</td>
+    <td>앱 시작 로그에서 InitPgDB 오류 메시지 확인</td>
+  </tr>
+  <tr>
+    <td>로그에 <code>PostgreSQL insert failed: ...</code></td>
+    <td>연결은 성공했으나 INSERT 단계에서 오류</td>
+    <td>LastError 메시지 확인 (권한 부족, 컬럼 타입 불일치 등)</td>
+  </tr>
+</table>
+
+<div class="note">
+  PostgreSQL 저장 실패는 SQLite/MySQL 저장에 영향을 주지 않습니다.<br>
+  v1.1부터 로그 메시지가 세분화되어 원인을 바로 확인할 수 있습니다.
+</div>
+
+
+<!-- ══════════════ 8. 다른 프로젝트 적용 ══════════════ -->
+<h1>8. 다른 프로젝트에 적용하기</h1>
+
+<p>이 패턴은 어느 프로젝트에도 동일하게 적용할 수 있습니다. 바꿔야 할 부분은 세 곳뿐입니다.</p>
+
+<ol>
+  <li><strong>PostgresDB.cs</strong> 복사 후 <code>namespace</code>를 해당 프로젝트명으로 변경</li>
+  <li><code>CreateTable()</code>의 컬럼 정의를 해당 프로젝트 데이터에 맞게 수정</li>
+  <li><code>InsertRecord()</code>의 파라미터 목록을 컬럼에 맞게 수정</li>
+</ol>
+
+<p>연결 방식, NuGet 참조(Npgsql 5.0.18), Global/Setting 초기화 패턴은 모두 동일합니다.</p>
+
+<div class="ok">
+  Npgsql 버전 주의: <strong>5.x</strong>는 .NET Framework 4.x 지원,
+  <strong>6.x 이상</strong>은 .NET 6+ 전용입니다.
+  .NET Framework 4.8 프로젝트에는 반드시 5.0.18을 사용하세요.
+</div>
+
+
+<!-- ══════════════ 푸터 ══════════════ -->
+<hr style="margin-top:60px;" />
+<p style="text-align:center; color:#888; font-size:9pt;">
+  ATMC.App.MultiRobotBolting – PostgreSQL 연동 매뉴얼 v1.1 &nbsp;|&nbsp; 2026-03-04
+</p>
+
+</body>
+</html>
