@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/PostgreSQL_연동_매뉴얼.html" }
+  ]
+}
