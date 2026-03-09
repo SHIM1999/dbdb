@@ -1,402 +1,798 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PostgreSQL DB 연동 매뉴얼 – ATMC.App.MultiRobotBolting</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ATMC.Database.PostgreSQL — 통합 가이드</title>
   <style>
-    body { font-family: 'Noto Sans KR', 'Malgun Gothic', Arial, sans-serif; font-size: 11pt; color: #222; margin: 60px auto; max-width: 800px; line-height: 1.7; padding: 0 20px; box-sizing: border-box; }
-    h1 { font-size: 20pt; color: #1a3c6e; border-bottom: 3px solid #1a3c6e; padding-bottom: 8px; margin-top: 40px; }
-    h2 { font-size: 14pt; color: #1a3c6e; border-left: 5px solid #1a3c6e; padding-left: 10px; margin-top: 32px; }
-    h3 { font-size: 12pt; color: #333; margin-top: 20px; }
-    table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 10.5pt; }
-    th { background: #1a3c6e; color: #fff; padding: 8px 12px; text-align: left; }
-    td { border: 1px solid #ccc; padding: 7px 12px; }
-    tr:nth-child(even) td { background: #f4f7fc; }
-    code { background: #f0f0f0; border-radius: 3px; padding: 1px 5px; font-family: Consolas, monospace; font-size: 10pt; }
-    pre { background: #f4f7fc; border-left: 4px solid #1a3c6e; padding: 14px 16px; font-family: Consolas, monospace; font-size: 10pt; overflow-x: auto; border-radius: 4px; white-space: pre; }
-    .note { background: #fff8dc; border-left: 4px solid #f0c040; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
-    .warn { background: #fff0f0; border-left: 4px solid #e05050; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
-    .ok   { background: #f0fff4; border-left: 4px solid #40b070; padding: 10px 14px; margin: 14px 0; border-radius: 3px; }
-    ul, ol { padding-left: 22px; }
-    li { margin: 4px 0; }
-    .cover { text-align: center; margin: 60px 0 80px; }
-    .cover h1 { border: none; font-size: 26pt; }
-    .cover p { color: #555; font-size: 11pt; }
-    .flow { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
-    .box { background: #1a3c6e; color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 10pt; }
-    .arrow { font-size: 14pt; color: #888; }
-    @media (max-width: 600px) {
-      body { font-size: 10pt; margin: 20px auto; }
-      h1 { font-size: 16pt; }
-      h2 { font-size: 12pt; }
-      .cover h1 { font-size: 18pt; }
-      table { font-size: 9pt; }
-      pre { font-size: 9pt; }
+    :root {
+      --bg: #f7f8fc;
+      --surface: #ffffff;
+      --surface2: #f0f2f8;
+      --border: #e2e6f0;
+      --accent: #3b6ef5;
+      --accent-light: #eef2ff;
+      --accent2: #16a06a;
+      --accent2-light: #e8f8f2;
+      --accent3: #e07b20;
+      --accent3-light: #fff4e8;
+      --red: #e53e3e;
+      --red-light: #fff5f5;
+      --text: #1a202c;
+      --text2: #4a5568;
+      --muted: #718096;
+      --code-bg: #f4f6fb;
+      --code-border: #dde2f0;
     }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', 'Segoe UI', system-ui, sans-serif;
+      line-height: 1.75;
+    }
+    a { color: var(--accent); text-decoration: none; }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #3b6ef5 0%, #2451d4 100%);
+      color: #fff;
+      padding: 70px 40px 60px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      padding: 5px 14px;
+      border-radius: 20px;
+      margin-bottom: 22px;
+      border: 1px solid rgba(255,255,255,0.3);
+    }
+    header h1 {
+      font-size: clamp(28px, 5vw, 50px);
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 14px;
+    }
+    header h1 span { color: #a5c0ff; }
+    header p { color: rgba(255,255,255,0.8); font-size: 17px; max-width: 620px; margin: 0 auto; }
+    .meta {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+      flex-wrap: wrap;
+    }
+    .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.75);
+      background: rgba(255,255,255,0.12);
+      padding: 5px 14px;
+      border-radius: 20px;
+    }
+
+    /* ── Layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 64px 24px; }
+    section { margin-bottom: 72px; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    h2 {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+    .subtitle { color: var(--muted); font-size: 15px; margin-bottom: 24px; }
+
+    /* ── Cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 24px; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .card-icon { font-size: 26px; margin-bottom: 10px; }
+    .card h3 { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+    .card p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ── Steps ── */
+    .steps { display: flex; flex-direction: column; gap: 0; }
+    .step { display: flex; gap: 20px; position: relative; }
+    .step:not(:last-child)::before {
+      content: '';
+      position: absolute;
+      left: 19px; top: 44px; bottom: -10px;
+      width: 2px;
+      background: var(--border);
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1;
+      box-shadow: 0 2px 8px rgba(59,110,245,0.35);
+    }
+    .step-body { padding-bottom: 36px; flex: 1; min-width: 0; }
+    .step-body h3 { font-size: 16px; font-weight: 700; margin-bottom: 8px; padding-top: 9px; color: var(--text); }
+    .step-body > p { font-size: 14px; color: var(--muted); margin-bottom: 12px; }
+
+    /* ── Code ── */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--code-border);
+      border-radius: 10px;
+      overflow: hidden;
+      margin: 12px 0;
+      font-size: 13px;
+    }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--code-border);
+    }
+    .code-lang { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); }
+    .code-file { font-size: 11px; color: var(--muted); font-family: 'Consolas', monospace; }
+    pre {
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-family: 'Cascadia Code', 'Consolas', 'D2Coding', monospace;
+      font-size: 13px;
+      line-height: 1.75;
+      color: #2d3748;
+    }
+    .kw  { color: #6b21a8; font-weight: 600; }
+    .str { color: #166534; }
+    .cmt { color: #9ca3af; font-style: italic; }
+    .tag { color: #1d4ed8; }
+    .atr { color: #0369a1; }
+    .val { color: #c2410c; }
+    .typ { color: #b45309; }
+    .num { color: #0369a1; }
+
+    /* ── Method cards ── */
+    .method-grid { display: flex; flex-direction: column; gap: 16px; }
+    .method-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .method-head {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 18px 20px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .method-name {
+      font-family: 'Consolas', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      flex: 1;
+      min-width: 0;
+      word-break: break-all;
+    }
+    .ret-tag {
+      flex-shrink: 0;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 10px;
+      border-radius: 6px;
+    }
+    .ret-bool  { background: var(--accent2-light); color: var(--accent2); }
+    .ret-void  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .ret-str   { background: var(--accent3-light); color: var(--accent3); }
+    .ret-other { background: var(--accent-light); color: var(--accent); }
+    .method-body { padding: 16px 20px; }
+    .method-body p { font-size: 14px; color: var(--text2); margin-bottom: 10px; }
+    .method-body p:last-child { margin-bottom: 0; }
+    .method-body .detail { font-size: 13px; color: var(--muted); }
+    .param-list { margin: 8px 0 12px; }
+    .param-list dt { font-family: 'Consolas', monospace; font-size: 12px; color: var(--accent3); font-weight: 700; float: left; margin-right: 10px; }
+    .param-list dd { font-size: 13px; color: var(--muted); margin-left: 0; padding-left: 140px; margin-bottom: 4px; }
+    .param-list::after { content: ''; display: table; clear: both; }
+    .warn-box {
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #92400e;
+      margin-top: 10px;
+    }
+    .info-box {
+      background: var(--accent-light);
+      border: 1px solid #c7d7fd;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #1e3a8a;
+      margin-top: 10px;
+    }
+
+    /* ── File tree ── */
+    .file-tree {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 26px;
+      font-family: 'Cascadia Code', 'Consolas', monospace;
+      font-size: 13px;
+      line-height: 2;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .dir  { color: var(--accent); font-weight: 700; }
+    .fnew { color: var(--accent2); }
+    .note { color: var(--muted); font-style: italic; }
+
+    /* ── Table ── */
+    .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    table { width: 100%; border-collapse: collapse; }
+    th { text-align: left; padding: 11px 16px; font-size: 12px; font-weight: 700; color: var(--muted); background: var(--surface2); border-bottom: 1px solid var(--border); }
+    td { padding: 12px 16px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text2); }
+    tr:last-child td { border-bottom: none; }
+    td.mono { font-family: 'Consolas', monospace; color: var(--accent3); font-size: 12px; }
+    .pill {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 6px;
+    }
+    .pill-blue   { background: var(--accent-light);  color: var(--accent); }
+    .pill-green  { background: var(--accent2-light); color: var(--accent2); }
+    .pill-orange { background: var(--accent3-light); color: var(--accent3); }
+
+    /* ── Type map ── */
+    .type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+    .type-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 13px;
+    }
+    .type-left  { font-family: 'Consolas', monospace; color: var(--text2); }
+    .type-right { font-family: 'Consolas', monospace; color: var(--accent2); font-weight: 700; font-size: 12px; }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 32px 24px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      background: var(--surface);
+    }
+    footer strong { color: var(--accent); }
+
+    /* ── Divider ── */
+    .divider { height: 1px; background: var(--border); margin: 0 0 72px; }
   </style>
 </head>
 <body>
 
-<!-- ══════════════ 표지 ══════════════ -->
-<div class="cover">
-  <h1>PostgreSQL DB 연동 매뉴얼</h1>
-  <p><strong>프로젝트:</strong> ATMC.App.MultiRobotBolting</p>
-  <p><strong>작성일:</strong> 2026-03-04</p>
-  <p><strong>버전:</strong> 1.1</p>
-  <hr />
-  <p style="font-size:10pt; color:#888;">본 문서는 기존 SQLite + MySQL(MariaDB) 이중 저장 구조에<br>
-  PostgreSQL을 세 번째 저장 대상으로 추가한 작업에 대한 설명입니다.</p>
-</div>
+<!-- Header -->
+<header>
+  <div class="badge">Library Documentation</div>
+  <h1>ATMC.Database.<span>PostgreSQL</span></h1>
+  <p>LotusAPI.Data 프레임워크용 PostgreSQL 어댑터 — NuGet 없이, DLL 참조만으로 바로 사용 가능</p>
+  <div class="meta">
+    <div class="meta-item">&#9679; .NET Framework 4.8</div>
+    <div class="meta-item">&#9679; Npgsql 5.0.18</div>
+    <div class="meta-item">&#9679; NuGet 불필요</div>
+    <div class="meta-item">&#9679; 자동 스키마 마이그레이션</div>
+  </div>
+</header>
 
+<div class="container">
 
-<!-- ══════════════ 1. 개요 ══════════════ -->
-<h1>1. 개요</h1>
+  <!-- 개요 -->
+  <section>
+    <div class="section-label">개요</div>
+    <h2>이 라이브러리는 무엇인가요?</h2>
+    <p class="subtitle">LotusAPI.Data의 <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;font-family:Consolas;color:var(--accent3)">SqliteDatabase</code>, <code style="background:var(--code-bg);padding:2px 6px;border-radius:4px;font-family:Consolas;color:var(--accent3)">SqlExpressDatabase</code>와 동일한 패턴으로 만들어진 PostgreSQL 백엔드입니다. DLL만 참조하면 바로 사용할 수 있습니다.</p>
+    <div class="cards">
+      <div class="card">
+        <div class="card-icon">🔌</div>
+        <h3>NuGet 불필요</h3>
+        <p>모든 DLL이 <code style="font-family:Consolas;font-size:12px">C:\LotusAPI\bin\</code>에 있습니다. HintPath로 참조하면 끝.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗄️</div>
+        <h3>자동 테이블 생성</h3>
+        <p>EnsureTable()이 테이블을 자동 생성하고, 새 컬럼이 추가되면 자동으로 ALTER TABLE을 실행합니다.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>듀얼 쓰기</h3>
+        <p>SQLite/MySQL과 동시에 동작합니다. 기존 코드를 전혀 건드리지 않고 PostgreSQL을 추가할 수 있습니다.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔧</div>
+        <h3>LotusAPI 네이티브</h3>
+        <p>LotusAPI.Data.Database를 상속. 기존 Table, Row, Column API를 그대로 사용합니다.</p>
+      </div>
+    </div>
+  </section>
 
-<p>
-  기존 시스템은 볼팅 사이클 결과를 <strong>SQLite(로컬)</strong>와 <strong>MySQL/MariaDB(서버)</strong>
-  두 곳에 저장하고 있었습니다.<br>
-  이번 작업에서는 기존 저장 로직을 <strong>변경하지 않고</strong>,
-  <strong>PostgreSQL을 세 번째 저장 대상으로 추가</strong>하였습니다.
-</p>
+  <div class="divider"></div>
 
-<div class="flow">
-  <span class="box">사이클 완료</span>
-  <span class="arrow">→</span>
-  <span class="box">SaveDB()</span>
-  <span class="arrow">→</span>
-  <span class="box">① SQLite</span>
-  <span class="arrow">+</span>
-  <span class="box">② MySQL</span>
-  <span class="arrow">+</span>
-  <span class="box">③ PostgreSQL (신규)</span>
-</div>
+  <!-- 필요 파일 -->
+  <section>
+    <div class="section-label">필요 파일</div>
+    <h2>C:\LotusAPI\bin\ 에 있어야 할 DLL 목록</h2>
+    <p class="subtitle">아래 파일들은 이미 bin 폴더에 있습니다. 따로 다운로드할 필요 없습니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>파일명</th><th>버전</th><th>역할</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">ATMC.Database.PostgreSQL.dll</td><td>—</td><td><span class="pill pill-blue">직접 제작</span></td></tr>
+          <tr><td class="mono">Npgsql.dll</td><td>5.0.18</td><td><span class="pill pill-orange">PostgreSQL 드라이버</span></td></tr>
+          <tr><td class="mono">Microsoft.Bcl.AsyncInterfaces.dll</td><td>5.0.0</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">Microsoft.Extensions.Logging.Abstractions.dll</td><td>5.0.0</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Diagnostics.DiagnosticSource.dll</td><td>5.0.0</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Text.Json.dll</td><td>5.0.0.2</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Runtime.CompilerServices.Unsafe.dll</td><td>5.0.0</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Memory.dll</td><td>4.0.1.1</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Buffers.dll</td><td>4.0.3</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+          <tr><td class="mono">System.Threading.Tasks.Extensions.dll</td><td>4.2.0.1</td><td><span class="pill pill-green">Npgsql 의존성</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-<div class="ok">
-  세 블록은 각각 독립된 try/catch로 감싸져 있으므로,
-  하나가 실패해도 나머지 저장은 정상적으로 진행됩니다.
-</div>
+  <div class="divider"></div>
 
+  <!-- 통합 단계 -->
+  <section>
+    <div class="section-label">프로젝트 통합</div>
+    <h2>새 프로젝트에 추가하는 방법 (5단계)</h2>
+    <p class="subtitle">모든 프로젝트에서 동일하게 적용됩니다. 복사-붙여넣기만 하면 됩니다.</p>
+    <div class="steps">
 
-<!-- ══════════════ 2. 시스템 구성 ══════════════ -->
-<h1>2. 시스템 구성</h1>
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>.csproj에 DLL 참조 추가</h3>
+          <p>프로젝트 파일의 <code style="font-family:Consolas">&lt;ItemGroup&gt;</code> 안에 아래 두 줄을 추가합니다.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">XML</span><span class="code-file">YourProject.csproj</span></div>
+            <pre><span class="cmt">&lt;!-- PostgreSQL 라이브러리 참조 --&gt;</span>
+<span class="tag">&lt;Reference</span> <span class="atr">Include</span>=<span class="str">"ATMC.Database.PostgreSQL"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;HintPath&gt;</span>C:\LotusAPI\bin\ATMC.Database.PostgreSQL.dll<span class="tag">&lt;/HintPath&gt;</span>
+<span class="tag">&lt;/Reference&gt;</span>
+<span class="tag">&lt;Reference</span> <span class="atr">Include</span>=<span class="str">"Npgsql"</span><span class="tag">&gt;</span>
+  <span class="tag">&lt;HintPath&gt;</span>C:\LotusAPI\bin\Npgsql.dll<span class="tag">&lt;/HintPath&gt;</span>
+<span class="tag">&lt;/Reference&gt;</span></pre>
+          </div>
+        </div>
+      </div>
 
-<h2>2-1. DB 비교</h2>
-<table>
-  <tr><th>항목</th><th>SQLite</th><th>MySQL (MariaDB)</th><th>PostgreSQL (신규)</th></tr>
-  <tr><td>용도</td><td>앱 내부 로컬 저장</td><td>공장 서버 전송</td><td>PostgreSQL 서버 전송</td></tr>
-  <tr><td>연결 방식</td><td>파일 경로</td><td>IP + 고정 계정(atmc/atmc)</td><td>IP + 포트 + 계정 (설정 가능)</td></tr>
-  <tr><td>테이블명</td><td>RESULT</td><td>tblcycleinfo</td><td>result</td></tr>
-  <tr><td>AUTO INCREMENT</td><td>INTEGER AUTOINCREMENT</td><td>INT AUTO_INCREMENT</td><td>SERIAL</td></tr>
-  <tr><td>설정 위치</td><td>Global.DbFile</td><td>Global.Setting.DBServerAddress</td><td>Global.Setting.PgHost 외 4개</td></tr>
-</table>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>App.config에 바인딩 리다이렉트 추가</h3>
+          <p>Npgsql의 의존 DLL 버전이 맞지 않아 발생하는 오류를 막기 위해 <code style="font-family:Consolas">App.config</code>에 아래 블록 전체를 붙여넣습니다.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">XML</span><span class="code-file">App.config</span></div>
+            <pre><span class="tag">&lt;runtime&gt;</span>
+  <span class="tag">&lt;assemblyBinding</span> <span class="atr">xmlns</span>=<span class="str">"urn:schemas-microsoft-com:asm.v1"</span><span class="tag">&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Runtime.CompilerServices.Unsafe"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"b03f5f7f11d50a3a"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-5.0.0.0"</span> <span class="atr">newVersion</span>=<span class="str">"5.0.0.0"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"Microsoft.Bcl.AsyncInterfaces"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-5.0.0.0"</span> <span class="atr">newVersion</span>=<span class="str">"5.0.0.0"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Text.Json"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-5.0.0.2"</span> <span class="atr">newVersion</span>=<span class="str">"5.0.0.2"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"Microsoft.Extensions.Logging.Abstractions"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"adb9793829ddae60"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-5.0.0.0"</span> <span class="atr">newVersion</span>=<span class="str">"5.0.0.0"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Diagnostics.DiagnosticSource"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-5.0.0.0"</span> <span class="atr">newVersion</span>=<span class="str">"5.0.0.0"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Memory"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-4.0.1.1"</span> <span class="atr">newVersion</span>=<span class="str">"4.0.1.1"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Buffers"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-4.0.3.0"</span> <span class="atr">newVersion</span>=<span class="str">"4.0.3.0"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+    <span class="tag">&lt;dependentAssembly&gt;</span>
+      <span class="tag">&lt;assemblyIdentity</span> <span class="atr">name</span>=<span class="str">"System.Threading.Tasks.Extensions"</span>
+                        <span class="atr">publicKeyToken</span>=<span class="str">"cc7b13ffcd2ddd51"</span> <span class="atr">culture</span>=<span class="str">"neutral"</span><span class="tag">/&gt;</span>
+      <span class="tag">&lt;bindingRedirect</span> <span class="atr">oldVersion</span>=<span class="str">"0.0.0.0-4.2.0.1"</span> <span class="atr">newVersion</span>=<span class="str">"4.2.0.1"</span><span class="tag">/&gt;</span>
+    <span class="tag">&lt;/dependentAssembly&gt;</span>
+  <span class="tag">&lt;/assemblyBinding&gt;</span>
+<span class="tag">&lt;/runtime&gt;</span></pre>
+          </div>
+        </div>
+      </div>
 
-<h2>2-2. 추가/변경된 파일 목록</h2>
-<table>
-  <tr><th>파일</th><th>상태</th><th>내용</th></tr>
-  <tr><td>PostgresDB.cs</td><td>신규 생성</td><td>PostgreSQL 연결/DDL/DML 클래스</td></tr>
-  <tr><td>packages.config</td><td>신규 생성</td><td>Npgsql 5.0.18 NuGet 선언</td></tr>
-  <tr><td>MySetting.cs</td><td>수정</td><td>PG 접속 설정 5개 추가</td></tr>
-  <tr><td>Global.cs</td><td>수정</td><td>PgDB 전역 변수 + InitPgDB() 추가</td></tr>
-  <tr><td>Result.cs</td><td>수정</td><td>SaveDB()에 PostgreSQL 블록 추가</td></tr>
-  <tr><td>*.csproj</td><td>수정</td><td>Npgsql 어셈블리 참조 등록</td></tr>
-</table>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>MySetting.cs에 DB 설정 추가</h3>
+          <p>설정 UI에서 PostgreSQL 접속 정보를 변경할 수 있도록 아래 속성들을 추가합니다.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">C#</span><span class="code-file">MySetting.cs</span></div>
+            <pre><span class="cmt">// MySetting 클래스 안에 추가</span>
+<span class="kw">public</span> Property_&lt;<span class="typ">string</span>&gt; DBServerAddress { <span class="kw">get</span>; } = <span class="kw">new</span> Property_&lt;<span class="typ">string</span>&gt;(<span class="str">"localhost"</span>, <span class="str">"DB"</span>, WriteProtectionType.AskForPermission);
+<span class="kw">public</span> Property_&lt;<span class="typ">int</span>&gt;    DBServerPort    { <span class="kw">get</span>; } = <span class="kw">new</span> Property_&lt;<span class="typ">int</span>&gt;(<span class="num">5432</span>,       <span class="str">"DB"</span>, WriteProtectionType.AskForPermission);
+<span class="kw">public</span> Property_&lt;<span class="typ">string</span>&gt; DBName          { <span class="kw">get</span>; } = <span class="kw">new</span> Property_&lt;<span class="typ">string</span>&gt;(<span class="str">"atmc"</span>,      <span class="str">"DB"</span>, WriteProtectionType.AskForPermission);
+<span class="kw">public</span> Property_&lt;<span class="typ">string</span>&gt; DBUser          { <span class="kw">get</span>; } = <span class="kw">new</span> Property_&lt;<span class="typ">string</span>&gt;(<span class="str">"postgres"</span>,  <span class="str">"DB"</span>, WriteProtectionType.AskForPermission);
+<span class="kw">public</span> Property_&lt;<span class="typ">string</span>&gt; DBPassword      { <span class="kw">get</span>; } = <span class="kw">new</span> Property_&lt;<span class="typ">string</span>&gt;(<span class="str">""</span>,          <span class="str">"DB"</span>, WriteProtectionType.AskForPermission);</pre>
+          </div>
+        </div>
+      </div>
 
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Global.cs에 PgDB 추가</h3>
+          <p>기존 SQLite DB/InitDB()는 절대 건드리지 않습니다. 아래 코드를 <strong>추가</strong>만 합니다. <code style="font-family:Consolas">EnsureTable()</code>은 SQLite의 Table 객체를 빼앗지 않고 PostgreSQL에만 테이블을 생성합니다.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">C#</span><span class="code-file">Global.cs</span></div>
+            <pre><span class="cmt">// 상단에 추가</span>
+<span class="kw">using</span> ATMC.Database.PostgreSQL;
 
-<!-- ══════════════ 3. 설치 및 준비 ══════════════ -->
-<h1>3. 설치 및 준비</h1>
+<span class="cmt">// DATABASE 리전 안에 추가 (기존 DB/InitDB는 그대로)</span>
+<span class="kw">public static</span> PostgreSqlDatabase PgDB = <span class="kw">null</span>;
+<span class="kw">public static void</span> InitPgDB() {
+    <span class="kw">try</span> {
+        PgDB = <span class="kw">new</span> PostgreSqlDatabase(
+            Setting.DBServerAddress, Setting.DBServerPort,
+            Setting.DBName, Setting.DBUser, Setting.DBPassword);
+        <span class="kw">if</span> (PgDB.Connect())
+            PgDB.EnsureTable(DB.MyTable); <span class="cmt">// 테이블 자동 생성 (SQLite Table 영향 없음)</span>
+    } <span class="kw">catch</span> (Exception ex) { Logger.Error(ex.Message); }
+}
 
-<h2>3-1. PostgreSQL 서버 설치</h2>
-<ol>
-  <li><a href="https://www.postgresql.org/download/windows/">https://www.postgresql.org/download/windows/</a> 에서 설치 파일 다운로드</li>
-  <li>설치 시 기본 설정:
-    <ul>
-      <li>포트: <code>5432</code></li>
-      <li>기본 계정: <code>postgres</code></li>
-      <li>비밀번호: 설치 중 직접 설정 (잊지 말 것)</li>
-    </ul>
-  </li>
-  <li>설치 완료 후 pgAdmin 또는 psql로 연결 확인</li>
-</ol>
-
-<div class="note">
-  PostgreSQL은 MySQL과 달리 <strong>데이터베이스를 미리 생성해 두어야 합니다.</strong><br>
-  pgAdmin에서 원하는 DB명으로 Database를 먼저 생성하거나, 기본 <code>postgres</code> DB를 그대로 사용할 수 있습니다.<br>
-  테이블(<code>result</code>)은 앱 시작 시 자동으로 생성됩니다.
-</div>
-
-<h2>3-2. NuGet 패키지 설치 (빌드 전 필수)</h2>
-
-<p>
-  Npgsql 5.0.18은 .NET Framework 4.8 환경에서 아래 세 개의 패키지를 <strong>별도로 설치</strong>해야 합니다.<br>
-  (.NET Core / .NET 5+ 에서는 런타임에 내장되어 있어 불필요하지만, .NET Framework에서는 직접 추가해야 합니다.)
-</p>
-
-<table>
-  <tr><th>패키지</th><th>설치 버전</th><th>필요 이유</th></tr>
-  <tr><td>Npgsql</td><td>5.0.18</td><td>PostgreSQL 드라이버 본체</td></tr>
-  <tr><td>System.Threading.Channels</td><td>4.7.1</td><td>Npgsql 내부 비동기 파이프라인 의존성</td></tr>
-  <tr><td>System.Text.Json</td><td>5.0.2</td><td>Npgsql JSON 직렬화 의존성</td></tr>
-  <tr><td>System.Runtime.CompilerServices.Unsafe</td><td>5.0.0</td><td>Npgsql 저수준 메모리 접근 의존성</td></tr>
-</table>
-
-<h3>설치 방법 – Package Manager Console</h3>
-<p>Visual Studio 2022 메뉴: <strong>도구 → NuGet 패키지 관리자 → 패키지 관리자 콘솔</strong></p>
-<pre>Install-Package Npgsql -Version 5.0.18
-Install-Package System.Threading.Channels -Version 4.7.1
-Install-Package System.Text.Json -Version 5.0.2
-Install-Package System.Runtime.CompilerServices.Unsafe -Version 5.0.0</pre>
-
-<div class="note">
-  이미 Npgsql이 설치되어 있어도 <strong>나머지 3개 패키지를 추가로 설치해야 합니다.</strong><br>
-  packages.config 방식(.NET Framework 레거시)은 전이적 의존성을 자동으로 설치하지 않습니다.
-</div>
-
-<div class="warn">
-  3개 의존 패키지가 없으면 앱 시작 시 <code>System.Threading.Channels</code> 등의
-  어셈블리 로드 오류가 발생하며, PostgreSQL 연결이 실패합니다.
-  빌드는 성공하더라도 런타임에서 오류가 발생하므로 반드시 설치하세요.
-</div>
-
-
-<!-- ══════════════ 4. 설정 항목 ══════════════ -->
-<h1>4. 설정 항목 (MySetting)</h1>
-
-<p>앱 설정 화면의 <strong>DB 그룹</strong>에 다음 항목이 추가되었습니다.</p>
-
-<table>
-  <tr><th>설정 항목</th><th>기본값</th><th>설명</th></tr>
-  <tr><td>PgHost</td><td>localhost</td><td>PostgreSQL 서버 주소 (IP 또는 호스트명)</td></tr>
-  <tr><td>PgPort</td><td>5432</td><td>포트 번호 (기본 5432)</td></tr>
-  <tr><td>PgDatabase</td><td>postgres</td><td>접속할 데이터베이스 이름</td></tr>
-  <tr><td>PgUser</td><td>postgres</td><td>사용자 계정</td></tr>
-  <tr><td>PgPassword</td><td>(빈값)</td><td>비밀번호</td></tr>
-</table>
-
-<div class="note">
-  설정 변경 시 WriteProtectionType.AskForPermission 이 적용되어 권한 확인 후 저장됩니다.<br>
-  변경 후에는 <strong>앱을 재시작</strong>해야 새 설정으로 재연결됩니다.
-</div>
-
-<h3>연결 문자열 예시</h3>
-<pre>Host=192.168.1.100;Port=5432;Database=atmc_result;Username=postgres;Password=1234;Timeout=10;CommandTimeout=30</pre>
-
-
-<!-- ══════════════ 5. 파일별 상세 설명 ══════════════ -->
-<h1>5. 파일별 상세 설명</h1>
-
-<h2>5-1. PostgresDB.cs</h2>
-<p>PostgreSQL 연동의 핵심 클래스입니다. 외부 의존성은 <code>Npgsql</code>과 표준 .NET(<code>System.Data</code>)뿐입니다.</p>
-
-<table>
-  <tr><th>메서드</th><th>설명</th></tr>
-  <tr><td><code>Connect()</code></td><td>서버에 연결하고 <code>CreateTable()</code>을 자동 호출</td></tr>
-  <tr><td><code>Disconnect()</code></td><td>연결 해제 및 리소스 정리</td></tr>
-  <tr><td><code>CreateTable()</code></td><td>result 테이블이 없으면 생성 (IF NOT EXISTS)</td></tr>
-  <tr><td><code>InsertRecord(...)</code></td><td>결과 1건을 파라미터 바인딩으로 삽입 (@param 방식)</td></tr>
-</table>
-
-<h3>테이블 구조 (result)</h3>
-<pre>id         SERIAL PRIMARY KEY
-date       TIMESTAMP   -- 저장 시각
-model      TEXT        -- 모델명
-body_no    TEXT        -- 바디 번호
-seq_no     TEXT        -- 시퀀스 번호
-result     CHAR(2)     -- "OK" / "NG"
-fit        REAL        -- 피트니스
-ovl        REAL        -- 오버랩
-dx/dy/dz   REAL        -- 등록 결과 위치 (mm)
-drx/dry/drz REAL       -- 등록 결과 각도 (deg)
-ox/oy/oz   REAL        -- 오프셋 위치
-orx/ory/orz REAL       -- 오프셋 각도
-result_dir TEXT        -- 결과 파일 저장 경로</pre>
-
-<div class="note">
-  컬럼 구성은 기존 SQLite <code>DB.COL</code> 열거형과 1:1로 일치합니다.
-</div>
-
-<h2>5-2. MySetting.cs</h2>
-<p>기존 <code>DBServerAddress</code> (MySQL용) 바로 아래에 5개 항목 추가:</p>
-<pre>public Property_&lt;string&gt; PgHost     { get; } = new Property_&lt;string&gt;("localhost", "DB", WriteProtectionType.AskForPermission);
-public Property_&lt;int&gt;    PgPort     { get; } = new Property_&lt;int&gt;(5432,           "DB", WriteProtectionType.AskForPermission);
-public Property_&lt;string&gt; PgDatabase { get; } = new Property_&lt;string&gt;("postgres",  "DB", WriteProtectionType.AskForPermission);
-public Property_&lt;string&gt; PgUser     { get; } = new Property_&lt;string&gt;("postgres",  "DB", WriteProtectionType.AskForPermission);
-public Property_&lt;string&gt; PgPassword { get; } = new Property_&lt;string&gt;("",          "DB", WriteProtectionType.AskForPermission);</pre>
-
-<h2>5-3. Global.cs</h2>
-<p>DATABASE 영역에 다음이 추가되었습니다:</p>
-<pre>public static PostgresDB PgDB = null;
-
-public static void InitPgDB() {
-    try {
-        PgDB = new PostgresDB(
-            Setting.PgHost, Setting.PgPort,
-            Setting.PgDatabase, Setting.PgUser, Setting.PgPassword);
-        PgDB.Connect();   // Connect() 내부에서 CreateTable() 자동 호출
-    } catch(Exception ex) { LotusAPI.Logger.Error(ex.Message); }
+<span class="cmt">// Init() 에서 InitDB() 바로 다음에 호출</span>
+<span class="kw">public static void</span> Init() {
+    InitDB();
+    InitPgDB(); <span class="cmt">// ← 이 한 줄 추가</span>
+    <span class="cmt">// 나머지는 그대로</span>
 }</pre>
+          </div>
+        </div>
+      </div>
 
-<p><code>Init()</code> 호출 순서:</p>
-<pre>InitPlc() → InitDB() → <strong>InitPgDB()</strong> → InitRobots() → InitScanners() → ...</pre>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>SaveDB()에 PostgreSQL 삽입 추가</h3>
+          <p>SQLite 삽입 코드 바로 다음에 한 줄만 추가합니다. <code style="font-family:Consolas">?.</code> 연산자를 사용하므로 PgDB가 null이면 자동으로 건너뜁니다.</p>
+          <div class="code-block">
+            <div class="code-header"><span class="code-lang">C#</span><span class="code-file">Result.cs — SaveDB()</span></div>
+            <pre><span class="cmt">// 기존 SQLite 삽입 — 건드리지 않음</span>
+DB.MyTable.InsertRow(row);
 
-<h2>5-4. Result.cs – SaveDB()</h2>
-<p>기존 두 블록 뒤에 세 번째 블록이 추가되었습니다. (<strong>line 132 ~ 162</strong>)</p>
+<span class="cmt">// 바로 아래에 이 한 줄 추가</span>
+Global.PgDB?.InsertRow(row);</pre>
+          </div>
+          <div class="info-box">
+            <strong>참고:</strong> PostgreSQL에서 테이블명과 컬럼명은 소문자로 저장됩니다 (<code>result</code>, <code>date</code>, <code>model</code> 등). 이는 PostgreSQL 표준 규칙이며 라이브러리가 자동으로 처리합니다.
+          </div>
+        </div>
+      </div>
 
-<table>
-  <tr><th>블록</th><th>라인</th><th>대상</th></tr>
-  <tr><td>try/catch #1</td><td>17 ~ 52</td><td>SQLite (기존, 변경 없음)</td></tr>
-  <tr><td>try/catch #2</td><td>53 ~ 130</td><td>MySQL/MariaDB (기존, 변경 없음)</td></tr>
-  <tr><td>try/catch #3</td><td>132 ~ 162</td><td>PostgreSQL (신규 추가 + 오류 진단 강화)</td></tr>
-</table>
+    </div>
+  </section>
 
-<pre>try {
-    if(Global.PgDB == null) {
-        Logger.Warn("PostgreSQL: PgDB is not initialized, skipping.");
-    } else if(!Global.PgDB.IsConnected) {
-        Logger.Error($"PostgreSQL: not connected, skipping insert. LastError={Global.PgDB.LastError}");
-    } else {
-        float fit = 0, ovl = 0, dx = 0, dy = 0, dz = 0, drx = 0, dry = 0, drz = 0;
-        if(RegistationResult != null) {
-            fit = (float)RegistationResult.Fitness;
-            ovl = (float)RegistationResult.Overlap;
-            var pose = new RobotPose(RegistationResult.Matrix);
-            dx  = (float)pose.X;  dy  = (float)pose.Y;  dz  = (float)pose.Z;
-            drx = (float)pose.Rx; dry = (float)pose.Ry; drz = (float)pose.Rz;
-        }
-        var pgOffset = (Model as ModelConfig).Registration.ShiftOffset;
-        bool pgOk = Global.PgDB.InsertRecord(
-            Model.Name, BodyNo, SeqNo, OK ? "OK" : "NG",
-            fit, ovl,
-            dx, dy, dz, drx, dry, drz,
-            (float)pgOffset.DX,  (float)pgOffset.DY,  (float)pgOffset.DZ,
-            (float)pgOffset.DRx, (float)pgOffset.DRy, (float)pgOffset.DRz,
-            GetResultDir());
-        if(pgOk) Logger.Log($"OK (PostgreSQL)");
-        else     Logger.Error($"PostgreSQL insert failed: {Global.PgDB.LastError}");
-    }
-} catch(Exception ex) {
-    Logger.Error(ex.Message);
-    Logger.Trace(ex.StackTrace);
+  <div class="divider"></div>
+
+  <!-- 파일 구조 -->
+  <section>
+    <div class="section-label">파일 구조</div>
+    <h2>어디에 무엇을 넣는가</h2>
+    <p class="subtitle">파일 위치 한눈에 보기</p>
+    <div class="file-tree">
+      <div><span class="dir">C:\LotusAPI\bin\</span> &nbsp;<span class="note">← 모든 DLL의 집결지</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">ATMC.Database.PostgreSQL.dll</span> &nbsp;<span class="note">← 이 라이브러리</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">Npgsql.dll</span> &nbsp;<span class="note">← PostgreSQL 드라이버</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">Microsoft.Bcl.AsyncInterfaces.dll</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">Microsoft.Extensions.Logging.Abstractions.dll</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">System.Diagnostics.DiagnosticSource.dll</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">System.Text.Json.dll</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">System.Runtime.CompilerServices.Unsafe.dll</span></div>
+      <div>&nbsp;&nbsp;├── <span class="fnew">System.Memory.dll</span>, <span class="fnew">System.Buffers.dll</span>, <span class="fnew">System.Threading.Tasks.Extensions.dll</span></div>
+      <div>&nbsp;&nbsp;└── LotusAPI.Data.dll &nbsp;<span class="note">← InternalsVisibleTo 패치 적용됨</span></div>
+      <br/>
+      <div><span class="dir">YourProject\</span></div>
+      <div>&nbsp;&nbsp;├── YourProject.csproj &nbsp;<span class="note">← HintPath 참조 추가 (Step 1)</span></div>
+      <div>&nbsp;&nbsp;├── App.config &nbsp;<span class="note">← 바인딩 리다이렉트 추가 (Step 2)</span></div>
+      <div>&nbsp;&nbsp;├── MySetting.cs &nbsp;<span class="note">← DB 속성 추가 (Step 3)</span></div>
+      <div>&nbsp;&nbsp;├── Global.cs &nbsp;<span class="note">← PgDB + InitPgDB 추가 (Step 4)</span></div>
+      <div>&nbsp;&nbsp;└── Result.cs &nbsp;<span class="note">← PgDB?.InsertRow(row) 추가 (Step 5)</span></div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- API 레퍼런스 -->
+  <section>
+    <div class="section-label">API 레퍼런스</div>
+    <h2>PostgreSqlDatabase — 메서드 설명</h2>
+    <p class="subtitle">공개(public) 메서드 전체 목록과 동작 방식</p>
+    <div class="method-grid">
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">PostgreSqlDatabase(string host, int port, string database, string username, string password)</div>
+          <span class="ret-tag ret-other">생성자</span>
+        </div>
+        <div class="method-body">
+          <p>호스트, 포트, DB명, 사용자명, 비밀번호를 받아 Npgsql 연결 문자열을 자동으로 조합합니다.</p>
+          <p class="detail">내부적으로 <code style="font-family:Consolas">Host=...;Port=...;Database=...;Username=...;Password=...;</code> 형식으로 변환됩니다.</p>
+          <div class="code-block" style="margin-top:10px">
+            <pre><span class="kw">var</span> pgDB = <span class="kw">new</span> PostgreSqlDatabase(<span class="str">"localhost"</span>, <span class="num">5432</span>, <span class="str">"atmc"</span>, <span class="str">"postgres"</span>, <span class="str">"1234"</span>);</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">PostgreSqlDatabase(string connectionString)</div>
+          <span class="ret-tag ret-other">생성자</span>
+        </div>
+        <div class="method-body">
+          <p>Npgsql 연결 문자열을 직접 전달하는 오버로드입니다.</p>
+          <div class="code-block" style="margin-top:10px">
+            <pre><span class="kw">var</span> pgDB = <span class="kw">new</span> PostgreSqlDatabase(<span class="str">"Host=localhost;Port=5432;Database=atmc;Username=postgres;Password=1234;"</span>);</pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">bool Connect()</div>
+          <span class="ret-tag ret-bool">bool</span>
+        </div>
+        <div class="method-body">
+          <p>PostgreSQL 서버에 실제로 연결을 시도합니다. 성공하면 <code style="font-family:Consolas">true</code>, 실패하면 <code style="font-family:Consolas">false</code>를 반환하고 오류를 로그에 기록합니다.</p>
+          <p class="detail">연결 실패 시 내부 예외(InnerException)까지 모두 로그에 출력하여 원인 파악을 쉽게 합니다.</p>
+          <div class="code-block" style="margin-top:10px">
+            <pre><span class="kw">if</span> (pgDB.Connect()) {
+    <span class="cmt">// 연결 성공</span>
 }</pre>
+          </div>
+        </div>
+      </div>
 
-<div class="warn">
-  <strong>v1.0 → v1.1 변경점:</strong> 기존 코드는 <code>InsertRecord()</code>의 반환값(bool)을 확인하지 않아,
-  연결 실패 시에도 로그에 <em>"OK (PostgreSQL)"</em>이 표시되는 문제가 있었습니다.<br>
-  변경 후에는 3단계로 상태를 분리하여 정확한 오류 원인을 로그에 기록합니다.
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">void EnsureTable(Table table)</div>
+          <span class="ret-tag ret-void">void</span>
+        </div>
+        <div class="method-body">
+          <p>PostgreSQL에 테이블이 없으면 자동 생성하고, 컬럼이 추가된 경우 <code style="font-family:Consolas">ALTER TABLE ... ADD COLUMN</code>으로 자동 마이그레이션합니다.</p>
+          <p class="detail"><strong>AddTable()과의 차이:</strong> EnsureTable()은 Table 객체를 이 DB에 등록하지 않습니다. 따라서 SQLite DB가 사용 중인 Table 객체를 공유해도 SQLite 동작에 전혀 영향을 주지 않습니다.</p>
+          <div class="warn-box">SQLite DB와 Table 객체를 공유할 때는 반드시 <strong>EnsureTable()</strong>을 사용하세요. AddTable()을 사용하면 Table의 소유권이 PgDB로 넘어가 SQLite 삽입이 실패합니다.</div>
+          <div class="code-block" style="margin-top:10px">
+            <pre><span class="kw">if</span> (pgDB.Connect())
+    pgDB.EnsureTable(DB.MyTable); <span class="cmt">// SQLite MyTable을 PostgreSQL에도 생성</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">bool InsertRow(Row row)</div>
+          <span class="ret-tag ret-bool">bool</span>
+        </div>
+        <div class="method-body">
+          <p>LotusAPI의 Row 객체를 PostgreSQL에 삽입합니다. Primary Key 컬럼(SERIAL)은 자동으로 건너뜁니다.</p>
+          <p class="detail">성공 시 로그에 기록하고 <code style="font-family:Consolas">true</code> 반환. 실패 시 전체 예외 체인을 로그에 출력하고 <code style="font-family:Consolas">false</code> 반환.</p>
+          <div class="code-block" style="margin-top:10px">
+            <pre><span class="cmt">// SQLite 삽입 후 바로 PostgreSQL에도 삽입</span>
+DB.MyTable.InsertRow(row);
+Global.PgDB?.InsertRow(row); <span class="cmt">// PgDB가 null이면 자동 스킵</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">void AddTable(Table table)</div>
+          <span class="ret-tag ret-void">void</span>
+        </div>
+        <div class="method-body">
+          <p>LotusAPI.Data.Database의 AddTable()을 재정의합니다. 테이블을 이 DB에 완전히 등록하고, 없는 컬럼은 자동 추가합니다.</p>
+          <p class="detail">PgDB가 Table을 단독으로 소유할 때(SQLite와 공유하지 않을 때)만 사용하세요. 공유 시에는 EnsureTable()을 사용합니다.</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- QueryBuilder -->
+  <section>
+    <div class="section-label">API 레퍼런스</div>
+    <h2>PostgreSqlQueryBuilder — 쿼리 빌더</h2>
+    <p class="subtitle">SELECT 쿼리를 PostgreSQL 문법으로 생성합니다. LotusAPI.Data.CommonQuery 내부에서 자동으로 사용됩니다.</p>
+    <div class="method-grid">
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">Select / SelectAll / SelectDistinct</div>
+          <span class="ret-tag ret-other">IQueryBuilder</span>
+        </div>
+        <div class="method-body">
+          <p>SELECT 절을 생성합니다. 컬럼명은 PostgreSQL 이중 따옴표 스타일(<code style="font-family:Consolas">"column"</code>)로 자동 처리됩니다.</p>
+          <div class="code-block" style="margin-top:8px">
+            <pre>SELECT "DATE", "MODEL", "RESULT"   <span class="cmt">-- Select()</span>
+SELECT *                           <span class="cmt">-- SelectAll()</span>
+SELECT DISTINCT "MODEL"            <span class="cmt">-- SelectDistinct()</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">Count / Average / Sum / Min / Max</div>
+          <span class="ret-tag ret-other">IQueryBuilder</span>
+        </div>
+        <div class="method-body">
+          <p>집계 함수를 생성합니다.</p>
+          <div class="code-block" style="margin-top:8px">
+            <pre>SELECT COUNT(*)        <span class="cmt">-- Count()</span>
+SELECT AVG("FIT")     <span class="cmt">-- Average("FIT")</span>
+SELECT SUM("OVL")     <span class="cmt">-- Sum("OVL")</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">Day / Month / Year / Hour / Minute</div>
+          <span class="ret-tag ret-str">string</span>
+        </div>
+        <div class="method-body">
+          <p>날짜 컬럼에서 특정 부분을 추출하는 PostgreSQL <code style="font-family:Consolas">EXTRACT()</code> 표현식을 반환합니다.</p>
+          <div class="code-block" style="margin-top:8px">
+            <pre>EXTRACT(DAY   FROM "DATE")::INTEGER  <span class="cmt">-- Day("DATE")</span>
+EXTRACT(MONTH FROM "DATE")::INTEGER  <span class="cmt">-- Month("DATE")</span>
+EXTRACT(YEAR  FROM "DATE")::INTEGER  <span class="cmt">-- Year("DATE")</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">MonthName / WeekDayName</div>
+          <span class="ret-tag ret-str">string</span>
+        </div>
+        <div class="method-body">
+          <p>날짜를 월 이름 또는 요일 이름 문자열로 변환하는 <code style="font-family:Consolas">TO_CHAR()</code> 표현식을 반환합니다.</p>
+          <div class="code-block" style="margin-top:8px">
+            <pre>TO_CHAR("DATE", 'Mon')  <span class="cmt">-- MonthName() → "Jan", "Feb"...</span>
+TO_CHAR("DATE", 'Dy')   <span class="cmt">-- WeekDayName() → "Mon", "Tue"...</span></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="method-card">
+        <div class="method-head">
+          <div class="method-name">Limit(column, descending, offset, length)</div>
+          <span class="ret-tag ret-other">IQueryBuilder</span>
+        </div>
+        <div class="method-body">
+          <p>PostgreSQL의 <code style="font-family:Consolas">LIMIT / OFFSET</code> 페이지네이션을 생성합니다.</p>
+          <div class="code-block" style="margin-top:8px">
+            <pre>ORDER BY "DATE" DESC
+LIMIT 100 OFFSET 50</pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ConditionBuilder -->
+  <section>
+    <div class="section-label">API 레퍼런스</div>
+    <h2>PostgreSqlConditionBuilder — WHERE 조건 빌더</h2>
+    <p class="subtitle">WHERE 조건을 PostgreSQL 이중 따옴표 스타일로 생성합니다.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>메서드</th><th>생성되는 SQL</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">Equal("RESULT", "OK")</td><td><code style="font-family:Consolas;font-size:12px">("RESULT" = 'OK')</code></td></tr>
+          <tr><td class="mono">NotEqual("RESULT", "NG")</td><td><code style="font-family:Consolas;font-size:12px">("RESULT" &lt;&gt; 'NG')</code></td></tr>
+          <tr><td class="mono">Like("MODEL", "A%")</td><td><code style="font-family:Consolas;font-size:12px">("MODEL" LIKE 'A%')</code></td></tr>
+          <tr><td class="mono">Between("DATE", d1, d2)</td><td><code style="font-family:Consolas;font-size:12px">("DATE" BETWEEN 'd1' AND 'd2')</code></td></tr>
+          <tr><td class="mono">LessThan("FIT", 0.5)</td><td><code style="font-family:Consolas;font-size:12px">("FIT" &lt; '0.5')</code></td></tr>
+          <tr><td class="mono">MoreThanOrEqual("OVL", 0.8)</td><td><code style="font-family:Consolas;font-size:12px">("OVL" &gt;= '0.8')</code></td></tr>
+          <tr><td class="mono">In("MODEL", "A", "B", "C")</td><td><code style="font-family:Consolas;font-size:12px">("MODEL" IN ('A', 'B', 'C'))</code></td></tr>
+          <tr><td class="mono">Not("조건")</td><td><code style="font-family:Consolas;font-size:12px">(NOT 조건)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- 타입 매핑 -->
+  <section>
+    <div class="section-label">타입 매핑</div>
+    <h2>LotusAPI 컬럼 타입 → PostgreSQL 타입</h2>
+    <p class="subtitle"><code style="font-family:Consolas">GetTypeStr()</code>이 자동으로 변환합니다.</p>
+    <div class="type-grid">
+      <div class="type-row"><span class="type-left">IntColumn (PK)</span><span class="type-right">SERIAL PRIMARY KEY</span></div>
+      <div class="type-row"><span class="type-left">IntColumn</span><span class="type-right">INTEGER</span></div>
+      <div class="type-row"><span class="type-left">FloatColumn</span><span class="type-right">REAL</span></div>
+      <div class="type-row"><span class="type-left">DoubleColumn</span><span class="type-right">DOUBLE PRECISION</span></div>
+      <div class="type-row"><span class="type-left">CharColumn(n)</span><span class="type-right">CHAR(n)</span></div>
+      <div class="type-row"><span class="type-left">DatetimeColumn</span><span class="type-right">TIMESTAMP</span></div>
+      <div class="type-row"><span class="type-left">TextColumn</span><span class="type-right">TEXT</span></div>
+      <div class="type-row"><span class="type-left">BoolColumn</span><span class="type-right">BOOLEAN</span></div>
+    </div>
+  </section>
+
 </div>
 
-<table>
-  <tr><th>로그 메시지</th><th>의미</th></tr>
-  <tr><td><code>OK (PostgreSQL)</code></td><td>정상 저장 완료</td></tr>
-  <tr><td><code>PostgreSQL: PgDB is not initialized, skipping.</code></td><td>InitPgDB() 자체가 실패 (예외 또는 설정 누락)</td></tr>
-  <tr><td><code>PostgreSQL: not connected, skipping insert. LastError=...</code></td><td>Connect() 실패 — LastError에 원인 표시</td></tr>
-  <tr><td><code>PostgreSQL insert failed: ...</code></td><td>연결은 됐으나 INSERT 실패</td></tr>
-</table>
-
-
-<!-- ══════════════ 6. 동작 흐름 ══════════════ -->
-<h1>6. 런타임 동작 흐름</h1>
-
-<h2>6-1. 앱 시작 시</h2>
-<pre>Program.Main()
-  └─ Global.InitGlobalSetting()   -- setting.json 로드
-  └─ Global.Init()
-       └─ InitDB()                -- SQLite 연결
-       └─ InitPgDB()              -- PostgreSQL 연결 + 테이블 자동 생성
-       └─ InitRobots() ...        -- 하드웨어 초기화</pre>
-
-<h2>6-2. 볼팅 사이클 완료 시</h2>
-<pre>Result.SaveDB()
-  ├─ [try #1] DB.MyTable.InsertRow(row)          → SQLite 저장
-  ├─ [try #2] MySqlConnection → INSERT             → MySQL 저장
-  └─ [try #3] Global.PgDB?.InsertRecord(...)      → PostgreSQL 저장</pre>
-
-
-<!-- ══════════════ 7. 문제 해결 ══════════════ -->
-<h1>7. 문제 해결</h1>
-
-<table>
-  <tr><th>증상</th><th>원인</th><th>해결 방법</th></tr>
-  <tr>
-    <td>빌드 오류: Npgsql 참조 없음</td>
-    <td>NuGet 패키지 미설치</td>
-    <td>패키지 관리자 콘솔에서 4개 패키지 설치 (3-2 참조)</td>
-  </tr>
-  <tr>
-    <td>런타임 오류: <code>System.Threading.Channels</code> 어셈블리 로드 실패</td>
-    <td>Npgsql 의존 패키지 3개 미설치<br>(빌드는 성공해도 런타임 실패)</td>
-    <td>패키지 관리자 콘솔에서 아래 3개 설치:<br>
-      <code>System.Threading.Channels 4.7.1</code><br>
-      <code>System.Text.Json 5.0.2</code><br>
-      <code>System.Runtime.CompilerServices.Unsafe 5.0.0</code>
-    </td>
-  </tr>
-  <tr>
-    <td>로그에 <code>PostgreSQL: not connected</code><br>+ <code>LastError=파일이나 어셈블리... 로드할 수 없습니다</code></td>
-    <td>위와 동일 — 의존 패키지 누락으로 Connect() 내부에서 예외 발생</td>
-    <td>위와 동일</td>
-  </tr>
-  <tr>
-    <td>로그에 "connection refused"</td>
-    <td>PostgreSQL 서버 미실행 또는 IP/포트 오류</td>
-    <td>서버 상태 확인, MySetting에서 PgHost/PgPort 재설정</td>
-  </tr>
-  <tr>
-    <td>로그에 "password authentication failed"</td>
-    <td>PgUser/PgPassword 불일치</td>
-    <td>MySetting에서 계정 정보 수정 후 재시작</td>
-  </tr>
-  <tr>
-    <td>로그에 "database does not exist"</td>
-    <td>PgDatabase에 지정한 DB가 없음</td>
-    <td>pgAdmin에서 해당 DB 생성 (테이블은 자동 생성됨)</td>
-  </tr>
-  <tr>
-    <td>로그에 <code>PostgreSQL: PgDB is not initialized</code></td>
-    <td>InitPgDB() 자체가 예외로 실패</td>
-    <td>앱 시작 로그에서 InitPgDB 오류 메시지 확인</td>
-  </tr>
-  <tr>
-    <td>로그에 <code>PostgreSQL insert failed: ...</code></td>
-    <td>연결은 성공했으나 INSERT 단계에서 오류</td>
-    <td>LastError 메시지 확인 (권한 부족, 컬럼 타입 불일치 등)</td>
-  </tr>
-</table>
-
-<div class="note">
-  PostgreSQL 저장 실패는 SQLite/MySQL 저장에 영향을 주지 않습니다.<br>
-  v1.1부터 로그 메시지가 세분화되어 원인을 바로 확인할 수 있습니다.
-</div>
-
-
-<!-- ══════════════ 8. 다른 프로젝트 적용 ══════════════ -->
-<h1>8. 다른 프로젝트에 적용하기</h1>
-
-<p>이 패턴은 어느 프로젝트에도 동일하게 적용할 수 있습니다. 바꿔야 할 부분은 세 곳뿐입니다.</p>
-
-<ol>
-  <li><strong>PostgresDB.cs</strong> 복사 후 <code>namespace</code>를 해당 프로젝트명으로 변경</li>
-  <li><code>CreateTable()</code>의 컬럼 정의를 해당 프로젝트 데이터에 맞게 수정</li>
-  <li><code>InsertRecord()</code>의 파라미터 목록을 컬럼에 맞게 수정</li>
-</ol>
-
-<p>연결 방식, NuGet 참조(Npgsql 5.0.18), Global/Setting 초기화 패턴은 모두 동일합니다.</p>
-
-<div class="ok">
-  Npgsql 버전 주의: <strong>5.x</strong>는 .NET Framework 4.x 지원,
-  <strong>6.x 이상</strong>은 .NET 6+ 전용입니다.
-  .NET Framework 4.8 프로젝트에는 반드시 5.0.18을 사용하세요.
-</div>
-
-
-<!-- ══════════════ 푸터 ══════════════ -->
-<hr style="margin-top:60px;" />
-<p style="text-align:center; color:#888; font-size:9pt;">
-  ATMC.App.MultiRobotBolting – PostgreSQL 연동 매뉴얼 v1.1 &nbsp;|&nbsp; 2026-03-04
-</p>
+<footer>
+  <strong>ATMC.Database.PostgreSQL</strong> — LotusAPI.Data PostgreSQL 어댑터 &nbsp;|&nbsp; .NET Framework 4.8 &nbsp;|&nbsp; Npgsql 5.0.18
+</footer>
 
 </body>
 </html>
